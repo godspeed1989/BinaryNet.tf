@@ -5,7 +5,7 @@ from __future__ import print_function
 from datetime import datetime
 import math
 import time
-from progress.bar import Bar
+from progressbar import ProgressBar
 
 import numpy as np
 import tensorflow as tf
@@ -21,6 +21,7 @@ def evaluate(model, dataset,
             is_training = tf.placeholder(tf.bool,[],name='is_training')
 
         # Build the Graph that computes the logits predictions
+        #  “跑” 模型
         y = model(x, is_training=False)
 
         # Calculate predictions.
@@ -63,13 +64,13 @@ def evaluate(model, dataset,
             total_acc = 0  # Counts the number of correct predictions per batch.
             total_loss = 0 # Sum the loss of predictions per batch.
             step = 0
-            bar = Bar('Evaluating', max=num_batches,suffix='%(percent)d%% eta: %(eta)ds')
+            bar = ProgressBar(maxval=num_batches).start()
             while step < num_batches and not coord.should_stop():
               acc_val, loss_val = sess.run([accuracy, loss])
               total_acc += acc_val
               total_loss += loss_val
+              bar.update(step)
               step += 1
-              bar.next()
 
             # Compute precision and loss
             total_acc /= num_batches

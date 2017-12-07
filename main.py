@@ -3,7 +3,7 @@ import importlib
 import tensorflow.python.platform
 import os
 import numpy as np
-from progress.bar import Bar
+from progressbar import ProgressBar
 from datetime import datetime
 from tensorflow.python.platform import gfile
 from data import *
@@ -12,6 +12,8 @@ from evaluate import evaluate
 timestr = '-'.join(str(x) for x in list(tuple(datetime.now().timetuple())[:6]))
 MOVING_AVERAGE_DECAY = 0.997
 FLAGS = tf.app.flags.FLAGS
+
+blue = lambda x:'\033[94m' + x + '\033[0m'
 
 # Basic model parameters.
 tf.app.flags.DEFINE_integer('batch_size', 128,
@@ -92,6 +94,7 @@ def train(model, data,
           num_epochs=-1):
 
     # tf Graph input
+    # 输入数据处理在 CPU 进行
     with tf.device('/cpu:0'):
         with tf.name_scope('data'):
             x, yt = data.generate_batches(batch_size)
@@ -99,11 +102,13 @@ def train(model, data,
         global_step =  tf.get_variable('global_step', shape=[], dtype=tf.int64,
                              initializer=tf.constant_initializer(0),
                              trainable=False)
+    # 根据用户选择决定训练在哪里进行
     if FLAGS.gpu:
         device_str='/gpu:' + str(FLAGS.device)
     else:
         device_str='/cpu:0'
     with tf.device(device_str):
+        # “跑” 模型
         y = model(x, is_training=True)
         # Define loss and optimizer
         with tf.name_scope('objective'):
@@ -118,6 +123,7 @@ def train(model, data,
         #grads = opt.compute_gradients(loss)
         #apply_gradient_op = opt.apply_gradients(grads, global_step=global_step)
 
+    print(blue('dev prepare done'))
     # loss_avg
 
     ema = tf.train.ExponentialMovingAverage(
@@ -133,6 +139,8 @@ def train(model, data,
     check_loss = tf.check_numerics(loss, 'model diverged: loss->nan')
     tf.add_to_collection(tf.GraphKeys.UPDATE_OPS, check_loss)
     updates_collection = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+
+    print(blue('set parameter done'))
 
     with tf.control_dependencies([opt]):
         train_op = tf.group(*updates_collection)
@@ -156,48 +164,51 @@ def train(model, data,
     )
     saver = tf.train.Saver(max_to_keep=5)
 
-    sess.run(tf.initialize_all_variables())
+    print(blue('create session done'))
+
+    sess.run(tf.global_variables_initializer())
 
     coord = tf.train.Coordinator()
     threads = tf.train.start_queue_runners(sess=sess, coord=coord)
 
-    num_batches = data.size[0] / batch_size
+    num_batches = (int)(data.size[0] / batch_size)
     summary_writer = tf.summary.FileWriter(log_dir, graph=sess.graph)
     epoch = 0
 
-    print('num of trainable paramaters: %d' %
-          count_params(tf.trainable_variables()))
+    print(blue('num of data %d' % data.size[0]))
+    print(blue('num of batches %d, batch_size %d' % (num_batches, batch_size)))
+    print(blue('num of trainable paramaters: %d' %
+          count_params(tf.trainable_variables())))
+
+    print(blue('start epoch training'))
     while epoch != num_epochs:
         epoch += 1
         curr_step = 0
-        # Initializing the variables
 
-        #with tf.Session() as session:
-        #    print(session.run(ww))
-
-        print('Started epoch %d' % epoch)
-        bar = Bar('Training', max=num_batches,
-                  suffix='%(percent)d%% eta: %(eta)ds')
+        print(blue('Started epoch %d' % epoch))
+        bar = ProgressBar(maxval=num_batches).start()
+        i = 0
         while curr_step < data.size[0]:
             _, loss_val = sess.run([train_op, loss])
             curr_step += FLAGS.batch_size
-            bar.next()
+            bar.update(i)
+            i += 1
 
         step, acc_value, loss_value, summary = sess.run(
             [global_step, accuracy_avg, loss_avg, summary_op])
         saver.save(sess, save_path=checkpoint_dir +
                    '/model.ckpt', global_step=global_step)
         bar.finish()
-        print('Finished epoch %d' % epoch)
-        print('Training Accuracy: %.3f' % acc_value)
-        print('Training Loss: %.3f' % loss_value)
+        print(blue('Finished epoch %d' % epoch))
+        print(blue('Training Accuracy: %.3f' % acc_value))
+        print(blue('Training Loss: %.3f' % loss_value))
 
         test_acc, test_loss = evaluate(model, FLAGS.dataset,
                                        batch_size=batch_size,
                                        checkpoint_dir=checkpoint_dir)  # ,
         # log_dir=log_dir)
-        print('Test Accuracy: %.3f' % test_acc)
-        print('Test Loss: %.3f' % test_loss)
+        print(blue('Test Accuracy: %.3f' % test_acc))
+        print(blue('Test Loss: %.3f' % test_loss))
 
         summary_out = tf.Summary()
         summary_out.ParseFromString(summary)
@@ -222,6 +233,7 @@ def main(argv=None):  # pylint: disable=unused-argument
         gfile.Copy(model_file, FLAGS.checkpoint_dir + '/model.py')
     m = importlib.import_module('.' + FLAGS.model, 'models')
     data = get_data_provider(FLAGS.dataset, training=True)
+    print(blue('mkdir and load data done'))
 
     train(m.model, data,
           batch_size=FLAGS.batch_size,

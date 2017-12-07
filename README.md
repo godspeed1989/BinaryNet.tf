@@ -16,14 +16,14 @@ The implementation is based on https://github.com/eladhoffer/convNet.tf but the 
 This implementation supports cifar10/cifar100  
 
 ## Dependencies
-tensorflow version 1.2.1
+tensorflow version 1.4.0
 
 ## Training
 
 * Train cifar10 model using gpu:
- python main.py --model BNN_vgg_cifar10 --save BNN_cifar10 --dataset cifar10 --gpu True
+ python main.py --model BNN_cifar10 --save BNN_cifar10 --dataset cifar10 --gpu True
 * Train cifar10 model using cpu:
- python main.py --model BNN_vgg_cifar10 --save BNN_cifar10 --dataset cifar10
+ python main.py --model BNN_cifar10 --save BNN_cifar10 --dataset cifar10
 
 
 ## Results

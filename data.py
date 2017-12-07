@@ -205,7 +205,7 @@ def get_data_provider(name, training=True):
         data_dir = os.path.join(path, 'cifar-10-batches-bin/')
         if training:
             return DataProvider(__read_cifar([os.path.join(data_dir, 'data_batch_%d.bin' % i)
-                                    for i in xrange(1, 6)]), [50000, 32,32,3], True)
+                                    for i in range(1, 6)]), [50000, 32,32,3], True)
         else:
             return DataProvider(__read_cifar([os.path.join(data_dir, 'test_batch.bin')]),
                                 [10000, 32,32, 3], False)

@@ -28,6 +28,6 @@ model = Sequential([
     BinarizedAffine(1024, bias=False),
     BatchNormalization(),
     HardTanh(),
-    BinarizedAffine(100),
+    BinarizedAffine(100),  # cifar100和cifar10只是这里不一样，cifar10此处为10
     BatchNormalization()
 ])
